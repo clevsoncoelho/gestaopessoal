@@ -7,11 +7,16 @@ import { createClient } from "@/lib/supabase/client";
 import { budgetStatus, calculateGoalProgress, requiredMonthlyContribution, sumByKind, type Bill, type Budget, type FinanceContext, type Goal, type Transaction } from "@/lib/finance";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-type DatabaseCategory = { name: string | null; icon: string | null } | null;
-type DatabaseTransaction = { id: string; description: string; amount: number | string; kind: Transaction["kind"]; context: FinanceContext; occurred_on: string; categories: DatabaseCategory[] };
+type CategoryRecord = { name: string | null; icon?: string | null };
+type DatabaseTransaction = { id: string; description: string; amount: number | string; kind: Transaction["kind"]; context: FinanceContext; occurred_on: string; categories: CategoryRecord | CategoryRecord[] | null };
 type DatabaseGoal = { id: string; title: string; current_amount: number | string; target_amount: number | string; target_date: string | null; monthly_contribution: number | string; context: FinanceContext };
 type DatabaseBill = { id: string; title: string; amount: number | string; due_on: string; status: Bill["status"]; context: FinanceContext };
-type DatabaseBudget = { id: string; limit_amount: number | string; context: FinanceContext; categories: { name: string | null }[] };
+type DatabaseBudget = { id: string; limit_amount: number | string; context: FinanceContext; categories: CategoryRecord | CategoryRecord[] | null };
+type DatabaseProfile = { default_context: FinanceContext; hide_balance: boolean };
+
+function firstCategory(category: CategoryRecord | CategoryRecord[] | null): CategoryRecord | null {
+  return Array.isArray(category) ? category[0] || null : category;
+}
 
 export default function Home() {
   const router = useRouter();
@@ -49,21 +54,25 @@ export default function Home() {
         const monthStart = new Date();
         monthStart.setDate(1);
         const monthStartValue = monthStart.toISOString().slice(0, 10);
-        const [transactionsResult, goalsResult, billsResult, budgetsResult] = await Promise.all([
+        const [profileResult, transactionsResult, goalsResult, billsResult, budgetsResult] = await Promise.all([
+          supabase.from("profiles").select("default_context, hide_balance").eq("id", auth.user.id).maybeSingle(),
           supabase.from("transactions").select("id, description, amount, kind, context, occurred_on, categories(name, icon)").order("occurred_on", { ascending: false }).limit(30),
           supabase.from("goals").select("id, title, current_amount, target_amount, target_date, monthly_contribution, context").order("created_at", { ascending: false }),
           supabase.from("bills").select("id, title, amount, due_on, status, context").order("due_on", { ascending: true }),
           supabase.from("budgets").select("id, limit_amount, context, categories(name)").eq("month_start", monthStartValue)
         ]);
-        const firstError = transactionsResult.error || goalsResult.error || billsResult.error || budgetsResult.error;
+        const firstError = profileResult.error || transactionsResult.error || goalsResult.error || billsResult.error || budgetsResult.error;
         if (firstError) throw firstError;
         if (!active) return;
-        setTransactions((transactionsResult.data as DatabaseTransaction[]).map((row) => ({ id: row.id, title: row.description, category: row.categories?.[0]?.name || "Sem categoria", date: row.occurred_on, amount: Number(row.amount), kind: row.kind, context: row.context, icon: row.categories?.[0]?.icon || "•" })));
+        const profile = profileResult.data as DatabaseProfile | null;
+        setMode(profile?.default_context || "personal");
+        setHideBalance(profile?.hide_balance || false);
+        setTransactions((transactionsResult.data as DatabaseTransaction[]).map((row) => { const category = firstCategory(row.categories); return { id: row.id, title: row.description, category: category?.name || "Sem categoria", date: row.occurred_on, amount: Number(row.amount), kind: row.kind, context: row.context, icon: category?.icon || "•" }; }));
         setGoals((goalsResult.data as DatabaseGoal[]).map((row) => ({ id: row.id, title: row.title, emoji: "◇", current: Number(row.current_amount), target: Number(row.target_amount), targetDate: row.target_date || undefined, monthlyContribution: Number(row.monthly_contribution), context: row.context })));
         setBills((billsResult.data as DatabaseBill[]).map((row) => ({ id: row.id, title: row.title, amount: Number(row.amount), dueOn: row.due_on, status: row.status, context: row.context })));
         setBudgets((budgetsResult.data as DatabaseBudget[]).map((row) => ({
           id: row.id,
-          name: row.categories?.[0]?.name || "Sem categoria",
+          name: firstCategory(row.categories)?.name || "Sem categoria",
           used: 0,
           limit: Number(row.limit_amount),
           context: row.context
@@ -75,6 +84,16 @@ export default function Home() {
     load();
     return () => { active = false; };
   }, [router]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = createClient();
+    async function persistProfile() {
+      const { error } = await supabase.from("profiles").upsert({ id: userId, default_context: mode, hide_balance: hideBalance }, { onConflict: "id" });
+      if (error) notify(`Não foi possível salvar as preferências: ${error.message}`);
+    }
+    void persistProfile();
+  }, [hideBalance, mode, userId]);
 
   const visibleTransactions = transactions.filter((item) => item.context === mode || item.kind === "income");
   const visibleGoals = goals.filter((item) => item.context === mode);
