@@ -1,9 +1,11 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -16,7 +18,7 @@ export default function LoginPage() {
       const supabase = createClient();
       const result = isSignUp ? await supabase.auth.signUp({ email, password }) : await supabase.auth.signInWithPassword({ email, password });
       if (result.error) throw result.error;
-      if (isSignUp) setMessage("Conta criada. Confirme seu e-mail para entrar."); else window.location.assign("/");
+      if (isSignUp) setMessage("Conta criada. Confirme seu e-mail para entrar."); else router.push("/");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível concluir o acesso."); }
     finally { setBusy(false); }
   }

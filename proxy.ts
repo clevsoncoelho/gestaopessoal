@@ -1,10 +1,11 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return NextResponse.next();
+  const isPublic = request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/api/keep-alive") || request.nextUrl.pathname.startsWith("/_next") || request.nextUrl.pathname.includes(".");
+  if (!url || !key) return isPublic ? NextResponse.next() : NextResponse.redirect(new URL("/login", request.url));
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient(url, key, {
@@ -18,7 +19,6 @@ export async function middleware(request: NextRequest) {
     }
   });
   const { data: { user } } = await supabase.auth.getUser();
-  const isPublic = request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/api/keep-alive") || request.nextUrl.pathname.startsWith("/_next") || request.nextUrl.pathname.includes(".");
   if (!user && !isPublic) return NextResponse.redirect(new URL("/login", request.url));
   if (user && request.nextUrl.pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
   return response;
