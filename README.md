@@ -8,6 +8,8 @@ Aplicação de gestão financeira mobile-first, com modo pessoal/profissional, d
 - Navegação por Início, Transações, Metas e Perfil.
 - Cadastro e exclusão persistentes de transações e metas no Supabase.
 - Busca e swipe para excluir transações.
+- Aba de análise com indicadores, gastos por categoria e contas recorrentes persistidas.
+- Cadastro e quitação de contas diretamente pelo painel de análise.
 - Pull-to-refresh, animações e instalação como PWA.
 - Login, criação de conta, login Google e logout via Supabase Auth.
 - Rota `/api/keep-alive` e workflow agendado a cada dois dias.
