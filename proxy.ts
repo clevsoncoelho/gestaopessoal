@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  const isPublic = request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/api/keep-alive") || request.nextUrl.pathname.startsWith("/_next") || request.nextUrl.pathname.includes(".");
+  const isPublic = request.nextUrl.pathname === "/login" || request.nextUrl.pathname.startsWith("/auth/callback") || request.nextUrl.pathname.startsWith("/api/keep-alive") || request.nextUrl.pathname.startsWith("/_next") || request.nextUrl.pathname.includes(".");
   if (!url || !key) return isPublic ? NextResponse.next() : NextResponse.redirect(new URL("/login", request.url));
 
   let response = NextResponse.next({ request });
