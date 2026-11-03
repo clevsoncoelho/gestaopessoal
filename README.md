@@ -9,6 +9,9 @@ Aplicação de gestão financeira mobile-first, com modo pessoal/profissional, d
 - Cadastro e exclusão persistentes de transações e metas no Supabase.
 - Busca e swipe para excluir transações.
 - Aba de análise com indicadores, gastos por categoria e contas recorrentes persistidas.
+- Justificativa obrigatória nas novas transações, armazenada em `transactions.notes` e exibida no histórico.
+- A obrigatoriedade também é reforçada por trigger no banco para impedir registros novos sem justificativa, inclusive importações.
+- Área segura preparada para conexão Open Finance com o Banco Inter, sem solicitar senha ou expor certificados no navegador.
 - Cadastro e quitação de contas diretamente pelo painel de análise.
 - Pull-to-refresh, animações e instalação como PWA.
 - Login, criação de conta, login Google e logout via Supabase Auth.

@@ -1,6 +1,6 @@
 export type FinanceContext = "personal" | "professional";
 export type TransactionKind = "income" | "expense" | "transfer";
-export type Transaction = { id: string; title: string; category: string; date: string; amount: number; kind: TransactionKind; context: FinanceContext; icon: string };
+export type Transaction = { id: string; title: string; category: string; date: string; amount: number; kind: TransactionKind; context: FinanceContext; icon: string; notes: string };
 export type Goal = { id: string; title: string; emoji: string; current: number; target: number; targetDate?: string; monthlyContribution: number; context: FinanceContext };
 export type Bill = { id: string; title: string; amount: number; dueOn: string; status: "pending" | "paid" | "overdue" | "cancelled"; context: FinanceContext };
 export type Budget = { id: string; name: string; used: number; limit: number; context: FinanceContext };
