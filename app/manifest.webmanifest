@@ -1,0 +1,10 @@
+{
+  "name": "Pulse Finance",
+  "short_name": "Pulse",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d18",
+  "theme_color": "#090d18",
+  "description": "Gestão financeira pessoal e profissional",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

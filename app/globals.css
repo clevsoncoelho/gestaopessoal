@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: #090d18;
+  color: #f8fafc;
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.app-shell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 7% 0%, rgba(167,139,250,.2), transparent 30%),
+    radial-gradient(circle at 100% 25%, rgba(45,212,191,.12), transparent 28%),
+    #090d18;
+}
+.glass {
+  border: 1px solid rgba(255,255,255,.09);
+  background: linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.035));
+  box-shadow: 0 20px 60px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.safe-bottom { padding-bottom: calc(94px + env(safe-area-inset-bottom)); }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { scrollbar-width: none; }
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.progress-shimmer { position: relative; overflow: hidden; }
+.progress-shimmer::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); animation: shimmer 2.2s infinite; }
+.field { width: 100%; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: rgba(255,255,255,.06); color: #f8fafc; padding: .8rem 1rem; outline: none; }
+.field::placeholder { color: #64748b; }
+.field:focus { border-color: rgba(141,245,197,.55); box-shadow: 0 0 0 3px rgba(141,245,197,.08); }
