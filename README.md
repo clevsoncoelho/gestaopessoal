@@ -11,7 +11,7 @@ Aplicação de gestão financeira mobile-first, com modo pessoal/profissional, d
 - Aba de análise com indicadores, gastos por categoria e contas recorrentes persistidas.
 - Justificativa obrigatória nas novas transações, armazenada em `transactions.notes` e exibida no histórico.
 - A obrigatoriedade também é reforçada por trigger no banco para impedir registros novos sem justificativa, inclusive importações.
-- Área segura preparada para conexão Open Finance com o Banco Inter, sem solicitar senha ou expor certificados no navegador.
+- Fluxo Open Finance com Pluggy preparado para abrir a autorização do Banco Inter sem solicitar senha ou expor certificados no navegador. Requer `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET` privados na Vercel.
 - Cadastro e quitação de contas diretamente pelo painel de análise.
 - Pull-to-refresh, animações e instalação como PWA.
 - Login, criação de conta, login Google e logout via Supabase Auth.
