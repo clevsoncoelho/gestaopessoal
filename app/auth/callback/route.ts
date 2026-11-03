@@ -1,4 +1,5 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -8,9 +9,10 @@ export async function GET(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!code || !url || !key) return response;
+  const cookieStore = await cookies();
   const supabase = createServerClient(url, key, {
     cookies: {
-      getAll: () => request.headers.get("cookie")?.split("; ").map((item) => { const [name, ...rest] = item.split("="); return { name, value: rest.join("=") }; }) || [],
+      getAll: () => cookieStore.getAll(),
       setAll: ((values) => {
         values.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
       }) satisfies SetAllCookies
