@@ -13,6 +13,10 @@ const demoTransactions: Transaction[] = [
 ];
 const demoGoals: Goal[] = [{ id: "1", title: "Viagem para o Chile", emoji: "✈️", current: 3240, target: 8000, targetDate: "2027-02-01", monthlyContribution: 593, context: "personal" }];
 const demoBills: Bill[] = [{ id: "1", title: "Internet", amount: 89.9, dueOn: "2026-11-05", status: "pending", context: "personal" }, { id: "2", title: "Energia", amount: 142.2, dueOn: "2026-11-12", status: "pending", context: "personal" }];
+type DatabaseCategory = { name: string | null; icon: string | null } | null;
+type DatabaseTransaction = { id: string; description: string; amount: number | string; kind: Transaction["kind"]; context: FinanceContext; occurred_on: string; categories: DatabaseCategory[] };
+type DatabaseGoal = { id: string; title: string; current_amount: number | string; target_amount: number | string; target_date: string | null; monthly_contribution: number | string; context: FinanceContext };
+type DatabaseBill = { id: string; title: string; amount: number | string; due_on: string; status: Bill["status"]; context: FinanceContext };
 
 export default function Home() {
   const [mode, setMode] = useState<FinanceContext>("personal");
@@ -25,6 +29,7 @@ export default function Home() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [pullStart, setPullStart] = useState<number | null>(null);
 
   useEffect(() => {
@@ -33,36 +38,56 @@ export default function Home() {
       try {
         const supabase = createClient();
         const { data: auth } = await supabase.auth.getUser();
-        if (!auth.user || !active) return;
+        if (!active) return;
+        if (!auth.user) {
+          setAuthResolved(true);
+          return;
+        }
         setUserId(auth.user.id);
-        const [{ data: dbTransactions }, { data: dbGoals }, { data: dbBills }] = await Promise.all([
+        setTransactions([]);
+        setGoals([]);
+        setBills([]);
+        const [transactionsResult, goalsResult, billsResult] = await Promise.all([
           supabase.from("transactions").select("id, description, amount, kind, context, occurred_on, categories(name, icon)").order("occurred_on", { ascending: false }).limit(30),
           supabase.from("goals").select("id, title, current_amount, target_amount, target_date, monthly_contribution, context").order("created_at", { ascending: false }),
           supabase.from("bills").select("id, title, amount, due_on, status, context").order("due_on", { ascending: true })
         ]);
-        if (dbTransactions?.length) setTransactions(dbTransactions.map((row: any) => ({ id: row.id, title: row.description, category: row.categories?.name || "Sem categoria", date: row.occurred_on, amount: Number(row.amount), kind: row.kind, context: row.context, icon: row.categories?.icon || "•" })));
-        if (dbGoals?.length) setGoals(dbGoals.map((row: any) => ({ id: row.id, title: row.title, emoji: "◇", current: Number(row.current_amount), target: Number(row.target_amount), targetDate: row.target_date, monthlyContribution: Number(row.monthly_contribution), context: row.context })));
-        if (dbBills?.length) setBills(dbBills.map((row: any) => ({ id: row.id, title: row.title, amount: Number(row.amount), dueOn: row.due_on, status: row.status, context: row.context })));
-      } catch { /* The visual demo remains available when env vars are absent. */ }
+        const firstError = transactionsResult.error || goalsResult.error || billsResult.error;
+        if (firstError) throw firstError;
+        if (!active) return;
+        setTransactions((transactionsResult.data as DatabaseTransaction[]).map((row) => ({ id: row.id, title: row.description, category: row.categories?.[0]?.name || "Sem categoria", date: row.occurred_on, amount: Number(row.amount), kind: row.kind, context: row.context, icon: row.categories?.[0]?.icon || "•" })));
+        setGoals((goalsResult.data as DatabaseGoal[]).map((row) => ({ id: row.id, title: row.title, emoji: "◇", current: Number(row.current_amount), target: Number(row.target_amount), targetDate: row.target_date || undefined, monthlyContribution: Number(row.monthly_contribution), context: row.context })));
+        setBills((billsResult.data as DatabaseBill[]).map((row) => ({ id: row.id, title: row.title, amount: Number(row.amount), dueOn: row.due_on, status: row.status, context: row.context })));
+      } catch (error) {
+        if (active) notify(error instanceof Error ? `Não foi possível carregar os dados: ${error.message}` : "Não foi possível carregar os dados.");
+      } finally {
+        if (active) setAuthResolved(true);
+      }
     }
     load();
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
+    if (!authResolved || userId) return;
     try {
       const cached = localStorage.getItem("pulse-finance-cache");
       if (cached) { const data = JSON.parse(cached); if (Array.isArray(data.transactions)) setTransactions(data.transactions); if (Array.isArray(data.goals)) setGoals(data.goals); if (Array.isArray(data.bills)) setBills(data.bills); }
-    } catch { /* ignore malformed local cache */ }
-  }, []);
+    } catch {
+      localStorage.removeItem("pulse-finance-cache");
+    }
+  }, [authResolved, userId]);
 
-  useEffect(() => { try { localStorage.setItem("pulse-finance-cache", JSON.stringify({ transactions, goals, bills })); } catch { /* storage may be unavailable */ } }, [transactions, goals, bills]);
+  useEffect(() => {
+    if (!authResolved || userId) return;
+    try { localStorage.setItem("pulse-finance-cache", JSON.stringify({ transactions, goals, bills })); } catch { /* storage may be unavailable */ }
+  }, [authResolved, userId, transactions, goals, bills]);
 
   const visibleTransactions = transactions.filter((item) => item.context === mode || item.kind === "income");
   const visibleGoals = goals.filter((item) => item.context === mode);
   const visibleBills = bills.filter((item) => item.context === mode);
   const totals = sumByKind(visibleTransactions);
-  const balance = totals.income - totals.expense + (mode === "personal" ? 10598.92 : 2500);
+  const balance = totals.income - totals.expense;
   const featuredGoal = visibleGoals[0];
   function notify(message: string) { setNotice(message); window.setTimeout(() => setNotice(null), 2800); }
   async function refresh() { setLoading(true); await new Promise((resolve) => window.setTimeout(resolve, 650)); setLoading(false); notify("Dados atualizados"); }
@@ -73,11 +98,11 @@ export default function Home() {
     <div className="mx-auto min-h-dvh max-w-6xl px-5 pb-8 pt-6 sm:px-8">
       <Header mode={mode} setMode={setMode} tab={tab} setTab={setTab} />
       {loading && <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10"><motion.div className="h-full w-1/3 rounded-full bg-mint" animate={{ x: [0, 300] }} transition={{ repeat: Infinity, duration: .8 }} /></div>}
-      <AnimatePresence mode="wait"><motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>{tab === "Início" && <Dashboard balance={balance} hideBalance={hideBalance} setHideBalance={setHideBalance} totals={totals} featuredGoal={featuredGoal} visibleBills={visibleBills} setTab={setTab} />}{tab === "Transações" && <TransactionsView items={visibleTransactions} onDelete={(id) => { setTransactions((items) => items.filter((item) => item.id !== id)); notify("Transação removida"); }} onAdd={() => setModal("transaction")} />}{tab === "Metas" && <GoalsView goals={visibleGoals} onAdd={() => setModal("goal")} />}{tab === "Perfil" && <ProfileView userId={userId} mode={mode} setMode={setMode} hideBalance={hideBalance} setHideBalance={setHideBalance} />}</motion.div></AnimatePresence>
+      <AnimatePresence mode="wait"><motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>{tab === "Início" && <Dashboard balance={balance} hideBalance={hideBalance} setHideBalance={setHideBalance} totals={totals} featuredGoal={featuredGoal} visibleBills={visibleBills} setTab={setTab} />}{tab === "Transações" && <TransactionsView items={visibleTransactions} onDelete={async (id) => { try { if (userId) { const { error } = await createClient().from("transactions").delete().eq("id", id).eq("user_id", userId); if (error) throw error; } setTransactions((items) => items.filter((item) => item.id !== id)); notify("Transação removida"); } catch (error) { notify(error instanceof Error ? `Não foi possível remover: ${error.message}` : "Não foi possível remover a transação."); } }} onAdd={() => setModal("transaction")} />}{tab === "Metas" && <GoalsView goals={visibleGoals} onAdd={() => setModal("goal")} />}{tab === "Perfil" && <ProfileView userId={userId} mode={mode} setMode={setMode} hideBalance={hideBalance} setHideBalance={setHideBalance} />}</motion.div></AnimatePresence>
       <div className="safe-bottom" />
     </div>
     <BottomNav tab={tab} setTab={setTab} onAdd={() => setModal("transaction")} />
-    <AnimatePresence>{modal === "transaction" && <TransactionModal onClose={() => setModal(null)} onSaved={(item) => { setTransactions((items) => [item, ...items]); setModal(null); notify("Transação adicionada"); }} userId={userId} context={mode} />}{modal === "goal" && <GoalModal onClose={() => setModal(null)} onSaved={(item) => { setGoals((items) => [item, ...items]); setModal(null); notify("Meta criada"); }} userId={userId} context={mode} />}{notice && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-full border border-mint/20 bg-[#172238] px-4 py-3 text-xs text-mint shadow-xl">{notice}</motion.div>}</AnimatePresence>
+    <AnimatePresence>{modal === "transaction" && <TransactionModal onClose={() => setModal(null)} onSaved={(item) => { setTransactions((items) => [item, ...items]); setModal(null); notify("Transação adicionada"); }} onError={notify} userId={userId} context={mode} />}{modal === "goal" && <GoalModal onClose={() => setModal(null)} onSaved={(item) => { setGoals((items) => [item, ...items]); setModal(null); notify("Meta criada"); }} onError={notify} userId={userId} context={mode} />}{notice && <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-full border border-mint/20 bg-[#172238] px-4 py-3 text-xs text-mint shadow-xl">{notice}</motion.div>}</AnimatePresence>
   </main>;
 }
 
@@ -99,6 +124,6 @@ function BottomNav({ tab, setTab, onAdd }: { tab: string; setTab: (tab: string) 
 function NavButton({ label, icon, active, onClick }: { label: string; icon: string; active: boolean; onClick: () => void }) { return <button onClick={onClick} className={`flex w-16 flex-col items-center gap-1 text-[10px] transition ${active ? "text-mint" : "text-slate-500"}`}><span className="text-xl leading-5">{icon}</span>{label}</button>; }
 function Empty({ title, text }: { title: string; text: string }) { return <div className="glass rounded-2xl p-7 text-center"><p className="text-sm font-medium">{title}</p><p className="mt-2 text-xs text-slate-500">{text}</p></div>; }
 
-function TransactionModal({ onClose, onSaved, userId, context }: { onClose: () => void; onSaved: (item: Transaction) => void; userId: string | null; context: FinanceContext }) { const [title, setTitle] = useState(""); const [amount, setAmount] = useState(""); const [kind, setKind] = useState<"expense" | "income">("expense"); const [category, setCategory] = useState("Alimentação"); async function submit(event: FormEvent) { event.preventDefault(); const value = Number(amount.replace(",", ".")); if (!title.trim() || !value) return; const item: Transaction = { id: crypto.randomUUID(), title, category, date: "Agora", amount: value, kind, context, icon: kind === "income" ? "↑" : "•" }; try { if (userId) { const supabase = createClient(); await supabase.from("transactions").insert({ user_id: userId, description: title, amount: value, kind, context, occurred_on: new Date().toISOString().slice(0, 10) }); } } catch { /* local optimistic state stays available */ } onSaved(item); } return <Modal title="Nova transação" onClose={onClose}><form onSubmit={submit} className="space-y-3"><input autoFocus required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Mercado, cliente, aluguel" className="field" /><div className="grid grid-cols-2 gap-3"><input required inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor" className="field" /><select value={kind} onChange={(event) => setKind(event.target.value as "expense" | "income")} className="field"><option value="expense">Despesa</option><option value="income">Receita</option></select></div><select value={category} onChange={(event) => setCategory(event.target.value)} className="field"><option>Alimentação</option><option>Transporte</option><option>Serviços</option><option>Lazer</option><option>Casa</option></select><button className="w-full rounded-2xl bg-mint py-3 text-sm font-semibold text-ink">Salvar transação</button></form></Modal>; }
-function GoalModal({ onClose, onSaved, userId, context }: { onClose: () => void; onSaved: (item: Goal) => void; userId: string | null; context: FinanceContext }) { const [title, setTitle] = useState(""); const [target, setTarget] = useState(""); const [date, setDate] = useState(""); async function submit(event: FormEvent) { event.preventDefault(); const value = Number(target.replace(",", ".")); if (!title.trim() || !value) return; const item: Goal = { id: crypto.randomUUID(), title, emoji: "◇", current: 0, target: value, targetDate: date || undefined, monthlyContribution: requiredMonthlyContribution(0, value, date || undefined), context }; try { if (userId) { const supabase = createClient(); await supabase.from("goals").insert({ user_id: userId, title, target_amount: value, target_date: date || null, monthly_contribution: item.monthlyContribution, context }); } } catch { /* local optimistic state stays available */ } onSaved(item); } return <Modal title="Nova meta" onClose={onClose}><form onSubmit={submit} className="space-y-3"><input autoFocus required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Reserva, viagem, carro" className="field" /><input required inputMode="decimal" value={target} onChange={(event) => setTarget(event.target.value)} placeholder="Valor alvo" className="field" /><label className="block text-xs text-slate-500">Prazo (opcional)<input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="field mt-2" /></label><button className="w-full rounded-2xl bg-mint py-3 text-sm font-semibold text-ink">Criar meta</button></form></Modal>; }
+function TransactionModal({ onClose, onSaved, onError, userId, context }: { onClose: () => void; onSaved: (item: Transaction) => void; onError: (message: string) => void; userId: string | null; context: FinanceContext }) { const [title, setTitle] = useState(""); const [amount, setAmount] = useState(""); const [kind, setKind] = useState<"expense" | "income">("expense"); const [category, setCategory] = useState("Alimentação"); async function submit(event: FormEvent) { event.preventDefault(); const value = Number(amount.replace(",", ".")); if (!title.trim() || !Number.isFinite(value) || value <= 0) return; const item: Transaction = { id: crypto.randomUUID(), title: title.trim(), category, date: "Agora", amount: value, kind, context, icon: kind === "income" ? "↑" : "•" }; try { if (userId) { const supabase = createClient(); const { data: categoryRow, error: categoryError } = await supabase.from("categories").select("id").eq("user_id", userId).eq("name", category).eq("context", context).maybeSingle(); if (categoryError) throw categoryError; const { error } = await supabase.from("transactions").insert({ user_id: userId, category_id: categoryRow?.id || null, description: item.title, amount: value, kind, context, occurred_on: new Date().toISOString().slice(0, 10) }); if (error) throw error; } onSaved(item); } catch (error) { onError(error instanceof Error ? `Não foi possível salvar: ${error.message}` : "Não foi possível salvar a transação."); } } return <Modal title="Nova transação" onClose={onClose}><form onSubmit={submit} className="space-y-3"><input autoFocus required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Mercado, cliente, aluguel" className="field" /><div className="grid grid-cols-2 gap-3"><input required inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Valor" className="field" /><select value={kind} onChange={(event) => setKind(event.target.value as "expense" | "income")} className="field"><option value="expense">Despesa</option><option value="income">Receita</option></select></div><select value={category} onChange={(event) => setCategory(event.target.value)} className="field"><option>Alimentação</option><option>Transporte</option><option>Serviços</option><option>Lazer</option><option>Casa</option></select><button className="w-full rounded-2xl bg-mint py-3 text-sm font-semibold text-ink">Salvar transação</button></form></Modal>; }
+function GoalModal({ onClose, onSaved, onError, userId, context }: { onClose: () => void; onSaved: (item: Goal) => void; onError: (message: string) => void; userId: string | null; context: FinanceContext }) { const [title, setTitle] = useState(""); const [target, setTarget] = useState(""); const [date, setDate] = useState(""); async function submit(event: FormEvent) { event.preventDefault(); const value = Number(target.replace(",", ".")); if (!title.trim() || !Number.isFinite(value) || value <= 0) return; const item: Goal = { id: crypto.randomUUID(), title: title.trim(), emoji: "◇", current: 0, target: value, targetDate: date || undefined, monthlyContribution: requiredMonthlyContribution(0, value, date || undefined), context }; try { if (userId) { const { error } = await createClient().from("goals").insert({ user_id: userId, title: item.title, target_amount: value, target_date: date || null, monthly_contribution: item.monthlyContribution, context }); if (error) throw error; } onSaved(item); } catch (error) { onError(error instanceof Error ? `Não foi possível criar a meta: ${error.message}` : "Não foi possível criar a meta."); } } return <Modal title="Nova meta" onClose={onClose}><form onSubmit={submit} className="space-y-3"><input autoFocus required value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Reserva, viagem, carro" className="field" /><input required inputMode="decimal" value={target} onChange={(event) => setTarget(event.target.value)} placeholder="Valor alvo" className="field" /><label className="block text-xs text-slate-500">Prazo (opcional)<input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="field mt-2" /></label><button className="w-full rounded-2xl bg-mint py-3 text-sm font-semibold text-ink">Criar meta</button></form></Modal>; }
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) { return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-30 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm"><motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }} onClick={(event) => event.stopPropagation()} className="glass w-full max-w-lg rounded-[28px] p-5"><div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/20" /><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{title}</h2><button onClick={onClose} className="text-slate-500">✕</button></div>{children}</motion.div></motion.div>; }
