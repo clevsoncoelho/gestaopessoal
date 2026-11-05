@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/ui/Icon";
@@ -12,6 +12,23 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    // Captura erros vindos do redirecionamento do OAuth
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const err = params.get("error_description") || params.get("error");
+      if (err) {
+        if (err.includes("redirect_uri_mismatch") || err.includes("auth_callback_failed")) {
+          setMessage(
+            "Erro de redirecionamento: O novo domínio precisa ser autorizado no painel do Supabase e no Google Cloud."
+          );
+        } else {
+          setMessage(`Erro de autenticação: ${decodeURIComponent(err)}`);
+        }
+      }
+    }
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -38,15 +55,26 @@ export default function LoginPage() {
   }
 
   async function google() {
+    setBusy(true);
+    setMessage("");
     try {
       const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: {
+          redirectTo,
+        },
       });
       if (error) throw error;
-    } catch {
-      setMessage("Login social indisponível no momento.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Falha ao iniciar login Google: ${error.message}`
+          : "Login com Google indisponível no momento."
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -106,7 +134,8 @@ export default function LoginPage() {
 
         <button
           onClick={google}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/04 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/08"
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/04 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/08 disabled:opacity-50"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24">
             <path
