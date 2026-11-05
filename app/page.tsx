@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, type TouchEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { sumByKind } from "@/lib/finance";
+import { sumByKind, type Goal, type Transaction } from "@/lib/finance";
 import { useFinanceData } from "@/lib/hooks/useFinanceData";
 import { useToast } from "@/lib/hooks/useToast";
 
@@ -41,6 +41,8 @@ export default function Home() {
   const { toast, show: showToast } = useToast();
   const [tab, setTab] = useState("Início");
   const [modal, setModal] = useState<"transaction" | "goal" | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [pullStart, setPullStart] = useState<number | null>(null);
 
   // Pull-to-refresh without window.location.reload()
@@ -162,7 +164,11 @@ export default function Home() {
                 items={visibleTransactions}
                 loading={loading}
                 onDelete={handleDeleteTransaction}
-                onAdd={() => setModal("transaction")}
+                onEdit={(item) => setEditingTransaction(item)}
+                onAdd={() => {
+                  setEditingTransaction(null);
+                  setModal("transaction");
+                }}
                 period={period}
                 setPeriod={setPeriod}
               />
@@ -181,6 +187,7 @@ export default function Home() {
                   refresh();
                   showToast("Orçamento criado com sucesso!");
                 }}
+                onRefresh={refresh}
               />
             )}
 
@@ -189,10 +196,18 @@ export default function Home() {
                 goals={visibleGoals}
                 loading={loading}
                 userId={userId}
-                onAdd={() => setModal("goal")}
+                onAdd={() => {
+                  setEditingGoal(null);
+                  setModal("goal");
+                }}
+                onEdit={(goal) => setEditingGoal(goal)}
                 onGoalUpdated={() => {
                   refresh();
                   showToast("Aporte registrado com sucesso!");
+                }}
+                onGoalDeleted={() => {
+                  refresh();
+                  showToast("Meta removida com sucesso");
                 }}
                 onError={showToast}
               />
@@ -214,17 +229,33 @@ export default function Home() {
         <div className="safe-bottom" />
       </div>
 
-      <BottomNav tab={tab} setTab={setTab} onAdd={() => setModal("transaction")} />
+      <BottomNav
+        tab={tab}
+        setTab={setTab}
+        onAdd={() => {
+          setEditingTransaction(null);
+          setModal("transaction");
+        }}
+      />
 
       {/* Modals */}
       <AnimatePresence>
-        {modal === "transaction" && (
+        {(modal === "transaction" || editingTransaction !== null) && (
           <TransactionModal
-            onClose={() => setModal(null)}
+            initialData={editingTransaction}
+            onClose={() => {
+              setModal(null);
+              setEditingTransaction(null);
+            }}
             onSaved={() => {
               setModal(null);
+              setEditingTransaction(null);
               refresh();
-              showToast("Transação adicionada com sucesso!");
+              showToast(
+                editingTransaction
+                  ? "Transação atualizada com sucesso!"
+                  : "Transação adicionada com sucesso!"
+              );
             }}
             onError={showToast}
             userId={userId}
@@ -232,13 +263,22 @@ export default function Home() {
           />
         )}
 
-        {modal === "goal" && (
+        {(modal === "goal" || editingGoal !== null) && (
           <GoalModal
-            onClose={() => setModal(null)}
+            initialData={editingGoal}
+            onClose={() => {
+              setModal(null);
+              setEditingGoal(null);
+            }}
             onSaved={() => {
               setModal(null);
+              setEditingGoal(null);
               refresh();
-              showToast("Meta criada com sucesso!");
+              showToast(
+                editingGoal
+                  ? "Meta atualizada com sucesso!"
+                  : "Meta criada com sucesso!"
+              );
             }}
             onError={showToast}
             userId={userId}

@@ -9,9 +9,10 @@ const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 interface SwipeRowProps {
   item: Transaction;
   onDelete: (id: string) => void;
+  onEdit?: (item: Transaction) => void;
 }
 
-export function SwipeRow({ item, onDelete }: SwipeRowProps) {
+export function SwipeRow({ item, onDelete, onEdit }: SwipeRowProps) {
   const [pendingDelete, setPendingDelete] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,6 +55,9 @@ export function SwipeRow({ item, onDelete }: SwipeRowProps) {
     }
   })();
 
+  const isIncome = item.kind === "income";
+  const isTransfer = item.kind === "transfer";
+
   return (
     <div className="relative overflow-hidden rounded-2xl">
       <div className="swipe-row-delete">Excluir</div>
@@ -61,30 +65,45 @@ export function SwipeRow({ item, onDelete }: SwipeRowProps) {
         drag="x"
         dragConstraints={{ left: -96, right: 0 }}
         onDragEnd={handleDragEnd}
-        className="glass relative flex items-center gap-3 rounded-2xl p-3"
+        onClick={() => onEdit?.(item)}
+        className="glass relative flex cursor-pointer items-center gap-3 rounded-2xl p-3 transition hover:border-white/15"
       >
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/06 text-lg">
           {item.icon}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{item.title}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-medium text-slate-100">{item.title}</p>
+            {isTransfer && (
+              <span className="rounded-md bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300 border border-indigo-500/20">
+                Transf.
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-xs text-slate-500">
             {item.category} · {formattedDate}
           </p>
           {item.notes && (
-            <p className="mt-0.5 truncate text-xs text-slate-600">
+            <p className="mt-0.5 truncate text-xs text-slate-400">
               {item.notes}
             </p>
           )}
         </div>
-        <p
-          className={`shrink-0 text-sm font-semibold ${
-            item.kind === "income" ? "text-emerald-400" : "text-rose-400"
-          }`}
-        >
-          {item.kind === "income" ? "+" : "-"}
-          {currency.format(item.amount)}
-        </p>
+        <div className="text-right">
+          <p
+            className={`shrink-0 text-sm font-bold ${
+              isIncome
+                ? "text-emerald-400"
+                : isTransfer
+                ? "text-indigo-400"
+                : "text-rose-400"
+            }`}
+          >
+            {isIncome ? "+" : isTransfer ? "⇄ " : "-"}
+            {currency.format(item.amount)}
+          </p>
+          <span className="block text-[10px] text-slate-500 opacity-60">toque p/ editar</span>
+        </div>
       </motion.div>
     </div>
   );
