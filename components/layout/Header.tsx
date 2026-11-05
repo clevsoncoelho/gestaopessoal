@@ -44,7 +44,7 @@ export function Header({ mode, setMode, tab, setTab, userName }: HeaderProps) {
       </header>
 
       {/* Mode toggle */}
-      <div className="mt-6 flex rounded-2xl border border-white/08 bg-black/30 p-1 backdrop-blur-xl">
+      <div className="mt-6 flex rounded-2xl border border-white/08 bg-black/30 p-1.5 backdrop-blur-xl">
         {(["personal", "professional"] as FinanceContext[]).map((item) => (
           <button
             key={item}
@@ -68,18 +68,18 @@ export function Header({ mode, setMode, tab, setTab, userName }: HeaderProps) {
         ))}
       </div>
 
-      {/* Tab pills */}
-      <div className="hide-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1">
+      {/* Tab pills com espaçamento mais espaçoso */}
+      <div className="hide-scrollbar mt-5 flex gap-3 overflow-x-auto pb-1">
         {TABS.map((item) => {
           const isActive = tab === item;
           return (
             <button
               key={item}
               onClick={() => setTab(item)}
-              className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-semibold transition ${
+              className={`whitespace-nowrap rounded-full px-5 py-2.5 text-xs font-semibold transition-all ${
                 isActive
                   ? "border border-indigo-500/40 bg-gradient-to-r from-indigo-500/20 to-violet-500/10 text-white shadow-[0_0_16px_rgba(99,102,241,0.2)]"
-                  : "border border-white/06 text-slate-400 hover:border-white/15 hover:text-slate-200"
+                  : "border border-white/06 text-slate-400 hover:border-white/15 hover:text-slate-200 hover:bg-white/03"
               }`}
             >
               {item}
