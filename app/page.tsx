@@ -12,6 +12,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { TransactionsView } from "@/components/transactions/TransactionsView";
 import { TransactionModal } from "@/components/transactions/TransactionModal";
+import { PdfImportModal } from "@/components/transactions/PdfImportModal";
 import { GoalsView } from "@/components/goals/GoalsView";
 import { GoalModal } from "@/components/goals/GoalModal";
 import { AnalyticsView } from "@/components/analytics/AnalyticsView";
@@ -43,6 +44,7 @@ export default function Home() {
   const [modal, setModal] = useState<"transaction" | "goal" | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [isImportingPdf, setIsImportingPdf] = useState(false);
   const [pullStart, setPullStart] = useState<number | null>(null);
 
   // Pull-to-refresh without window.location.reload()
@@ -156,6 +158,7 @@ export default function Home() {
                 visibleBills={visibleBills}
                 budgetTotals={budgetTotals}
                 setTab={setTab}
+                onImportPdf={() => setIsImportingPdf(true)}
               />
             )}
 
@@ -169,6 +172,7 @@ export default function Home() {
                   setEditingTransaction(null);
                   setModal("transaction");
                 }}
+                onImportPdf={() => setIsImportingPdf(true)}
                 period={period}
                 setPeriod={setPeriod}
               />
@@ -283,6 +287,20 @@ export default function Home() {
             onError={showToast}
             userId={userId}
             context={mode}
+          />
+        )}
+
+        {isImportingPdf && (
+          <PdfImportModal
+            userId={userId}
+            context={mode}
+            onClose={() => setIsImportingPdf(false)}
+            onSuccess={(count) => {
+              setIsImportingPdf(false);
+              refresh();
+              showToast(`${count} movimentação(ões) importada(s) do extrato com sucesso!`);
+            }}
+            onError={showToast}
           />
         )}
       </AnimatePresence>

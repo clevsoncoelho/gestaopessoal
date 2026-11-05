@@ -13,6 +13,7 @@ interface TransactionsViewProps {
   onDelete: (id: string) => void;
   onEdit: (item: Transaction) => void;
   onAdd: () => void;
+  onImportPdf: () => void;
   period: "month" | "3months" | "all";
   setPeriod: (p: "month" | "3months" | "all") => void;
 }
@@ -23,6 +24,7 @@ export function TransactionsView({
   onDelete,
   onEdit,
   onAdd,
+  onImportPdf,
   period,
   setPeriod,
 }: TransactionsViewProps) {
@@ -64,19 +66,31 @@ export function TransactionsView({
 
   return (
     <section className="mt-6">
-      {/* Search and add */}
-      <div className="flex gap-3">
+      {/* Search and actions */}
+      <div className="flex gap-2 sm:gap-3">
         <div className="relative min-w-0 flex-1">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por descrição, categoria ou nota..."
+            placeholder="Buscar por descrição, categoria..."
             className="field pl-10"
           />
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
             <Icon name="filter" size={16} />
           </span>
         </div>
+
+        {/* Botão Importar Extrato PDF */}
+        <button
+          onClick={onImportPdf}
+          title="Importar extrato em PDF"
+          className="flex items-center gap-1.5 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/20"
+        >
+          <Icon name="pulse" size={15} />
+          <span className="hidden sm:inline">Importar PDF</span>
+        </button>
+
+        {/* Botão Exportar CSV */}
         <button
           onClick={exportCSV}
           title="Exportar para CSV"
@@ -84,6 +98,8 @@ export function TransactionsView({
         >
           <Icon name="chart" size={16} />
         </button>
+
+        {/* Botão Nova Transação */}
         <button
           onClick={onAdd}
           className="btn-primary rounded-2xl px-4 text-sm"
@@ -134,7 +150,7 @@ export function TransactionsView({
         ) : (
           <Empty
             title="Nenhuma movimentação encontrada"
-            text="Ajuste os filtros de busca ou cadastre uma nova transação."
+            text="Ajuste os filtros de busca, cadastre uma transação ou importe seu extrato bancário em PDF."
           />
         )}
       </div>
